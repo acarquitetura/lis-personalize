@@ -859,33 +859,175 @@ function updateInstallment() {
   else {note.textContent=`${n}x de R$\u00a0${(total/n).toLocaleString('pt-BR',{minimumFractionDigits:2})}`}
 }
 
+// ── Generate contract HTML for DocuSign ──
+function generateContractHTML() {
+  const plant = state.plantType ? PLANTS[state.plantKey][state.plantType] : null;
+  const kit   = state.kit ? KITS[state.kit] : null;
+  const total = calcTotal();
+  const n     = parseInt(document.getElementById('installments').value);
+  const parcel = n > 1 ? (total/n).toLocaleString('pt-BR',{minimumFractionDigits:2})
+                       : total.toLocaleString('pt-BR',{minimumFractionDigits:2});
+  const today = new Date().toLocaleDateString('pt-BR', {day:'2-digit',month:'long',year:'numeric'});
+  const cpf   = document.getElementById('cpf-input').value;
+  const unit  = String(state.client.unit).padStart(5,'0');
+
+  // Room choices for annex
+  const roomRows = [
+    ['Piso Sala',         'sala-piso'],
+    ['Rodapé Sala',       'sala-rodape'],
+    ['Piso Cozinha',      'coz-piso'],
+    ['Parede Cozinha',    'coz-parede'],
+    ['Bancada Cozinha',   'coz-bancada'],
+    ['Cuba Cozinha',      'coz-cuba'],
+    ['Misturador Cozinha','coz-mist'],
+  ].map(([label, key]) => {
+    const v  = state.rooms[key];
+    const nm = getOptName(key, v);
+    const pr = getOptPrice(key, v);
+    return `<tr>
+      <td style="padding:6px 10px;border-bottom:1px solid #eee;color:#555">${label}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #eee;font-weight:500">${nm}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right;color:${pr>0?'#8b1a2f':'#2d7a45'}">${pr>0?'+ R$ '+pr.toLocaleString('pt-BR'):'Incluso'}</td>
+    </tr>`;
+  }).join('');
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<style>
+  body{font-family:Arial,sans-serif;font-size:11pt;color:#1a1714;margin:0;padding:40px 60px;line-height:1.6}
+  .logo-area{text-align:right;font-size:10pt;color:#555;margin-bottom:20px;font-weight:600;letter-spacing:1px}
+  h1{text-align:center;font-size:13pt;font-weight:700;margin-bottom:28px;text-transform:uppercase;letter-spacing:1px}
+  p{text-align:justify;margin-bottom:12px}
+  .highlight{font-weight:700;text-decoration:underline}
+  .sig-section{margin-top:50px}
+  .sig-row{display:flex;gap:40px;margin-bottom:36px}
+  .sig-line{flex:1;border-top:1px solid #333;padding-top:5px;font-size:9pt;color:#555}
+  h2{font-size:11pt;font-weight:700;text-align:center;margin:30px 0 16px;text-decoration:underline}
+  table{width:100%;border-collapse:collapse;margin-bottom:16px}
+  th{background:#1a1714;color:#fff;padding:8px 10px;text-align:left;font-size:10pt}
+  .total-row{background:#f7f3ee;font-weight:700}
+  .page-break{page-break-before:always}
+  @media print{body{padding:20px 40px}}
+</style>
+</head><body>
+
+<div class="logo-area">LOGO DA EMPRESA</div>
+
+<h1>Termo de Opções</h1>
+
+<p>Conforme previsto na cláusula XI.2 das opções de planta do Instrumento Particular de Promessa de Compra e Venda da unidade <span class="highlight">${unit}</span> do empreendimento <strong>LIS</strong>, localizado na Rua Santa Clara, Copacabana, na qualidade de COMPRADOR(A)(ES)(AS) opto(amos) pelas opções de planta e revestimentos conforme indicado no anexo deste termo, pelo valor abaixo descrito, devidamente corrigido pelo índice de correção adotado no Instrumento de Promessa de Compra e Venda da unidade, de acordo com a variação ocorrida entre a data base e a data de seu efetivo pagamento, que não integrará o preço da unidade imobiliária.</p>
+
+<p>Em virtude das Opções feitas acima, declaro(amos) para os devidos fins que tenho(mos) conhecimento de que as Opções feitas nesta data não poderão ser alteradas a qualquer tempo nem poderão ser de qualquer forma adaptada posteriormente.</p>
+
+<p>Declaro(amos) que tenho(mos) ciência e concordo(amos) que em caso de rescisão imotivada do Instrumento de Promessa de Compra e Venda, ou de desistência por parte do COMPRADOR, os valores pagos relativos às Opções não serão objeto de devolução pela VENDEDORA e, caso haja saldo em aberto para a quitação da opção selecionada, os referidos valores relativos deverão ser integralmente quitados, podendo, inclusive, ser descontado pela VENDEDORA do valor a ser restituído ao COMPRADOR.</p>
+
+<p>Declaro(amos) que fui(fomos) informado(s) acerca da possibilidade dos materiais aqui previstos serem alterados para um similar no caso de falta de material ou de alteração pela INCORPORADORA.</p>
+
+<p>Declaro(amos) ainda que estou(amos) plenamente ciente(s) que caso o presente Anexo não seja assinado, através da ferramenta de assinatura eletrônica DocuSign, até o dia <strong>15/10/2026</strong>, ou em caso de inadimplemento quanto ao pagamento ajustado, a CONSTRUTORA executará a Opção de planta e acabamentos padrão.</p>
+
+<p>Rio de Janeiro, <span class="highlight">${today}</span>.</p>
+
+<p><strong>Nome:</strong> <span class="highlight">${state.client.name}</span></p>
+<p><strong>CPF:</strong> <span class="highlight">${cpf}</span></p>
+
+<div class="sig-section">
+  <div class="sig-row">
+    <div class="sig-line">Assinatura do Comprador<br><strong>${state.client.name}</strong></div>
+    <div class="sig-line">&nbsp;</div>
+  </div>
+  <div style="font-size:9pt;color:#555;margin-bottom:10px">Representantes da Incorporadora:</div>
+  <div class="sig-row">
+    <div class="sig-line">AC Arqui<br>ac@amandacrespoarq.com.br</div>
+    <div class="sig-line">&nbsp;</div>
+  </div>
+</div>
+
+<!-- PAGE 2: ANNEX -->
+<div class="page-break"></div>
+
+<h2>Anexo — Opções Selecionadas</h2>
+
+<table>
+  <tr><th colspan="3">Dados do Cliente</th></tr>
+  <tr><td style="padding:6px 10px"><strong>Nome</strong></td><td colspan="2" style="padding:6px 10px">${state.client.name}</td></tr>
+  <tr><td style="padding:6px 10px"><strong>CPF</strong></td><td colspan="2" style="padding:6px 10px">${cpf}</td></tr>
+  <tr><td style="padding:6px 10px"><strong>Unidade</strong></td><td colspan="2" style="padding:6px 10px">${unit}</td></tr>
+</table>
+
+<table>
+  <tr><th colspan="3">Planta</th></tr>
+  <tr>
+    <td style="padding:6px 10px;color:#555">Opção selecionada</td>
+    <td style="padding:6px 10px;font-weight:500">${plant?.label||'—'}</td>
+    <td style="padding:6px 10px;text-align:right;color:${(plant?.price||0)>0?'#8b1a2f':'#2d7a45'}">${(plant?.price||0)>0?'+ R$ '+(plant.price).toLocaleString('pt-BR'):'Incluso'}</td>
+  </tr>
+</table>
+
+<table>
+  <tr><th colspan="3">Kit de Acabamento</th></tr>
+  <tr>
+    <td style="padding:6px 10px;color:#555">Kit selecionado</td>
+    <td style="padding:6px 10px;font-weight:500">${kit?.name||'—'}</td>
+    <td style="padding:6px 10px;text-align:right;color:${(kit?.price||0)>0?'#8b1a2f':'#2d7a45'}">${(kit?.price||0)>0?'+ R$ '+(kit.price).toLocaleString('pt-BR'):'Incluso'}</td>
+  </tr>
+</table>
+
+<table>
+  <tr><th>Ambiente / Item</th><th>Escolha</th><th style="text-align:right">Valor</th></tr>
+  ${roomRows}
+</table>
+
+<table>
+  <tr class="total-row">
+    <td colspan="2" style="padding:10px">Total das Personalizações</td>
+    <td style="padding:10px;text-align:right">R$ ${total.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+  </tr>
+  <tr>
+    <td colspan="2" style="padding:8px 10px;color:#555">Forma de Pagamento</td>
+    <td style="padding:8px 10px;text-align:right;font-weight:500">${n===1?'À vista':n+'x de R$ '+parcel}</td>
+  </tr>
+</table>
+
+<p style="font-size:9pt;color:#777;margin-top:20px;text-align:center">
+  LIS Personalize — Performance Incorporações · Gerado em ${new Date().toLocaleDateString('pt-BR')}
+</p>
+
+</body></html>`;
+}
+
 async function confirmOrder() {
   const plant = PLANTS[state.plantKey][state.plantType];
   const kit   = KITS[state.kit];
   const total = calcTotal();
   const n     = parseInt(document.getElementById('installments').value);
-  const parcel = n > 1 ? (total/n).toLocaleString('pt-BR',{minimumFractionDigits:2}) : total.toLocaleString('pt-BR',{minimumFractionDigits:2});
+  const parcel = n > 1 ? (total/n).toLocaleString('pt-BR',{minimumFractionDigits:2})
+                       : total.toLocaleString('pt-BR',{minimumFractionDigits:2});
+  const cpf   = document.getElementById('cpf-input').value;
 
-  // Show loading
   const btn = event.target;
   btn.disabled = true;
   btn.textContent = 'Enviando para assinatura...';
 
-  const clientData = {
-    clientName:   state.client.name,
-    clientEmail:  'amanda.fcrespo@gmail.com', // será substituído pelo e-mail real do cliente
-    clientCPF:    document.getElementById('cpf-input').value,
-    unit:         state.client.unit,
-    plantLabel:   plant?.label || '—',
-    kitName:      kit?.name || '—',
-    total:        total.toLocaleString('pt-BR',{minimumFractionDigits:2}),
-    installments: n,
-    parcelValue:  parcel,
-    today:        new Date().toLocaleDateString('pt-BR'),
-    returnUrl:    window.location.origin + window.location.pathname + '?signed=true',
-  };
-
   try {
+    // Generate contract HTML
+    const contractHTML = generateContractHTML();
+    const contractB64  = btoa(unescape(encodeURIComponent(contractHTML)));
+
+    const clientData = {
+      clientName:    state.client.name,
+      clientEmail:   'amanda.fcrespo@gmail.com',
+      clientCPF:     cpf,
+      unit:          state.client.unit,
+      plantLabel:    plant?.label || '—',
+      kitName:       kit?.name || '—',
+      total:         total.toLocaleString('pt-BR',{minimumFractionDigits:2}),
+      installments:  n,
+      parcelValue:   parcel,
+      today:         new Date().toLocaleDateString('pt-BR'),
+      contractHTML:  contractB64,
+      returnUrl:     window.location.origin + window.location.pathname,
+    };
+
     const resp = await fetch('/.netlify/functions/docusign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -894,7 +1036,6 @@ async function confirmOrder() {
     const data = await resp.json();
 
     if (data.signingUrl) {
-      // Redirect to DocuSign for signing
       window.location.href = data.signingUrl;
     } else {
       throw new Error(data.error || 'Erro desconhecido');
